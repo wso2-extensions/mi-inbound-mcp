@@ -67,6 +67,8 @@ public class McpConstants {
     public static final String HEADER_ACCEPT = "Accept";
     public static final String HEADER_LAST_EVENT_ID = "Last-Event-ID";
     public static final String HEADER_MCP_SESSION_ID = "Mcp-Session-Id";
+    public static final String HEADER_FORWARDED_PREFIX = "X-Forwarded-Prefix";
+    public static final String HEADER_ENVOY_ORIGINAL_PATH = "X-Envoy-Original-Path";
 
     // CORS headers
     public static final String HEADER_CORS_ALLOW_ORIGIN = "Access-Control-Allow-Origin";
