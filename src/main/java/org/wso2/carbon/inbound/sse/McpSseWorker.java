@@ -125,9 +125,11 @@ public class McpSseWorker implements Runnable {
         try (OutputStream out = pipe.getOutputStream()) {
             String host = getHeader("Host");
             String scheme = getScheme();
+            String endpointPath = resolveEndpointPath(getHeader(McpConstants.HEADER_FORWARDED_PREFIX),
+                    getHeader(McpConstants.HEADER_ENVOY_ORIGINAL_PATH));
             String endpointUrl = (host != null)
-                    ? scheme + "://" + host + McpConstants.PATH_MCP + "?sessionId=" + sessionId
-                    : McpConstants.PATH_MCP + "?sessionId=" + sessionId;
+                    ? scheme + "://" + host + endpointPath + "?sessionId=" + sessionId
+                    : endpointPath + "?sessionId=" + sessionId;
             writeRaw(out, "event: endpoint\ndata: " + endpointUrl + "\n\n");
 
             while (true) {
@@ -160,6 +162,55 @@ public class McpSseWorker implements Runnable {
         }
         Header h = request.getRequest().getFirstHeader(headerName);
         return h != null ? h.getValue() : null;
+    }
+
+    /**
+     * Determines the path clients must POST to, as seen from outside any reverse proxy.
+     *
+     * Behind a gateway that serves this endpoint under another path (e.g. /my-server
+     * rewritten to /mcp), advertising /mcp sends clients to a path the gateway does not
+     * route. Clients POST through the same route they opened the stream on, so the
+     * public path is the one the GET arrived on: X-Forwarded-Prefix plus /mcp when a
+     * proxy stripped a prefix, otherwise the path Envoy recorded before rewriting it.
+     * Values that are not a plain absolute path are ignored, falling back to /mcp.
+     */
+    static String resolveEndpointPath(String forwardedPrefix, String envoyOriginalPath) {
+        String prefix = toPlainPath(forwardedPrefix);
+        if (prefix != null) {
+            if (prefix.endsWith("/")) {
+                prefix = prefix.substring(0, prefix.length() - 1);
+            }
+            return prefix + McpConstants.PATH_MCP;
+        }
+        String originalPath = toPlainPath(envoyOriginalPath);
+        if (originalPath != null) {
+            return originalPath;
+        }
+        return McpConstants.PATH_MCP;
+    }
+
+    /** Returns the path part of a header value, or null unless it is a plain absolute path. */
+    private static String toPlainPath(String value) {
+        if (value == null) {
+            return null;
+        }
+        String path = value.trim();
+        int queryStart = path.indexOf('?');
+        if (queryStart >= 0) {
+            path = path.substring(0, queryStart);
+        }
+        // Must be absolute ("//" would make it a host), and printable ASCII with no
+        // fragment or whitespace, as it is written into the SSE stream verbatim.
+        if (!path.startsWith("/") || path.startsWith("//")) {
+            return null;
+        }
+        for (int i = 0; i < path.length(); i++) {
+            char c = path.charAt(i);
+            if (c <= ' ' || c >= 0x7f || c == '#') {
+                return null;
+            }
+        }
+        return path;
     }
 
     /** Determines the scheme (http or https) for the endpoint URL. */
