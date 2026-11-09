@@ -7,7 +7,7 @@
     "rank": 20,
     "type": "Inbound",
     "category": "Developer Tools",
-    "documentationUrl": "",
+    "documentationUrl": "https://mi.docs.wso2.com/en/latest/develop/creating-artifacts/creating-an-mcp-server/",
     "description": "MCP (Model Context Protocol) SSE Inbound Endpoint for WSO2 Micro Integrator",
     "status": "Active",
     "labels": [
